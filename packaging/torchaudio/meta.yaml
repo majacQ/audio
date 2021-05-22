@@ -18,7 +18,7 @@ requirements:
 
   run:
     - python
-    - typing
+    - typing # [py2k]
     {{ environ.get('CONDA_PYTORCH_CONSTRAINT') }}
 
 build:
@@ -40,6 +40,7 @@ test:
     # Ideally we would test this, but conda doesn't provide librosa
     # - librosa >=0.4.3
     - scipy
+    - cpuonly
 
 about:
   home: https://github.com/pytorch/audio

@@ -1,15 +1,25 @@
 import os
 import warnings
+from typing import Any, List, Tuple
 
 import torchaudio
+from torch import Tensor
 from torch.utils.data import Dataset
-from torchaudio.datasets.utils import download_url, extract_archive, walk_files
+from torchaudio.datasets.utils import (
+    download_url,
+    extract_archive,
+    walk_files
+)
 
 URL = "http://www.openslr.org/resources/1/waves_yesno.tar.gz"
 FOLDER_IN_ARCHIVE = "waves_yesno"
+_CHECKSUMS = {
+    "http://www.openslr.org/resources/1/waves_yesno.tar.gz":
+    "962ff6e904d2df1126132ecec6978786"
+}
 
 
-def load_yesno_item(fileid, path, ext_audio):
+def load_yesno_item(fileid: str, path: str, ext_audio: str) -> Tuple[Tensor, int, List[int]]:
     # Read label
     labels = [int(c) for c in fileid.split("_")]
 
@@ -21,29 +31,35 @@ def load_yesno_item(fileid, path, ext_audio):
 
 
 class YESNO(Dataset):
-    """
-    Create a Dataset for YesNo. Each item is a tuple of the form:
-    (waveform, sample_rate, labels)
+    """Create a Dataset for YesNo.
+
+    Args:
+        root (str): Path to the directory where the dataset is found or downloaded.
+        url (str, optional): The URL to download the dataset from.
+            (default: ``"http://www.openslr.org/resources/1/waves_yesno.tar.gz"``)
+        folder_in_archive (str, optional):
+            The top-level directory of the dataset. (default: ``"waves_yesno"``)
+        download (bool, optional):
+            Whether to download the dataset if it is not found at root path. (default: ``False``).
+        transform (callable, optional): Optional transform applied on waveform. (default: ``None``)
+        target_transform (callable, optional): Optional transform applied on utterance. (default: ``None``)
     """
 
     _ext_audio = ".wav"
 
-    def __init__(
-        self,
-        root,
-        url=URL,
-        folder_in_archive=FOLDER_IN_ARCHIVE,
-        download=False,
-        transform=None,
-        target_transform=None,
-    ):
+    def __init__(self,
+                 root: str,
+                 url: str = URL,
+                 folder_in_archive: str = FOLDER_IN_ARCHIVE,
+                 download: bool = False,
+                 transform: Any = None,
+                 target_transform: Any = None) -> None:
 
         if transform is not None or target_transform is not None:
             warnings.warn(
                 "In the next version, transforms will not be part of the dataset. "
                 "Please remove the option `transform=True` and "
-                "`target_transform=True` to suppress this warning.",
-                DeprecationWarning,
+                "`target_transform=True` to suppress this warning."
             )
 
         self.transform = transform
@@ -56,7 +72,8 @@ class YESNO(Dataset):
         if download:
             if not os.path.isdir(self._path):
                 if not os.path.isfile(archive):
-                    download_url(url, root)
+                    checksum = _CHECKSUMS.get(url, None)
+                    download_url(url, root, hash_value=checksum, hash_type="md5")
                 extract_archive(archive)
 
         if not os.path.isdir(self._path):
@@ -69,7 +86,15 @@ class YESNO(Dataset):
         )
         self._walker = list(walker)
 
-    def __getitem__(self, n):
+    def __getitem__(self, n: int) -> Tuple[Tensor, int, List[int]]:
+        """Load the n-th sample from the dataset.
+
+        Args:
+            n (int): The index of the sample to be loaded
+
+        Returns:
+            tuple: ``(waveform, sample_rate, labels)``
+        """
         fileid = self._walker[n]
         item = load_yesno_item(fileid, self._path, self._ext_audio)
 
@@ -83,5 +108,5 @@ class YESNO(Dataset):
             labels = self.target_transform(labels)
         return waveform, sample_rate, labels
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._walker)
